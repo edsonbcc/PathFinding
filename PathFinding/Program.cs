@@ -10,6 +10,9 @@ namespace PathFinding
     {
         static void Main(string[] args)
         {
+            Console.WriteLine("Birl!");
+            Console.WriteLine("Hello!");
+
         }
     }
 }
