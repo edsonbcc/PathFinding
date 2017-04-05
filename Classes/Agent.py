@@ -1,4 +1,5 @@
 from math import sqrt
+from Classes import Display
 
 #I don't wanted to use this class outside the scope of the Agent. That's why creating an agent takes so many parameters!
 class Position:
@@ -15,6 +16,9 @@ class Position:
     def getCost(self):
         return self._cost
 
+    def getParent(self):
+        return self._parent
+
     def setCost(self, value):
         self._cost = value
 
@@ -27,15 +31,25 @@ class Sensor:
 
     def getSuccessors(self, row, col):
         successors = []
+        size = self._display.getSize()
 
-        successors.append(Position(row + 1, col))
-        successors.append(Position(row + 1, col + 1))
-        successors.append(Position(row, col + 1))
-        successors.append(Position(row - 1, col))
-        successors.append(Position(row, col - 1))
-        successors.append(Position(row - 1, col - 1))
-        successors.append(Position(row + 1, col - 1))
-        successors.append(Position(row - 1, col + 1))
+        #This is going to be horrible
+        if row < size:
+            successors.append(Position(row + 1, col))
+        if row < size and col < size:
+           successors.append(Position(row + 1, col + 1))
+        if col < size:
+            successors.append(Position(row, col + 1))
+        if row >= 0:
+            successors.append(Position(row - 1, col))
+        if col >= 0:
+            successors.append(Position(row, col - 1))
+        if row >= 0 and col >= 0:
+            successors.append(Position(row - 1, col - 1))
+        if col >= 0 and row < size:
+            successors.append(Position(row + 1, col - 1))
+        if row >= 0 and col < size:
+            successors.append(Position(row - 1, col + 1))
         return successors
 
     def getCost(self, pos):
@@ -54,12 +68,20 @@ class Sensor:
         else:
             return sqrt(abs(posX - destX)**2 + abs(posY - destY)**2)
 
+class Atuator:
+    def __init__(self, display):
+        self._display = display
+
+    def setDisPos(self, pos):
+        self._display.setPos(pos.getRow(), pos.getCol(), -1) # -1 is the path
+
 class Agent:
     #I think the agent need to know the display. This looks like a gambiarra, but i don't know what else to do. If you know, do as you wish.
     def __init__(self, origX, origY, destX, destY, display):
         self._sens = Sensor(display)
         self._pos = Position(origX, origY, 0)
         self._dest = Position(destX, destY, 0)
+        self._att = Atuator(display)
 
     def _nodeWithLeastF(self, openList):
         q = 0
@@ -72,19 +94,27 @@ class Agent:
                 q = i
         return q
 
-    def _setParent(self, sucessors, parent):
-        for suc in sucessors:
-            suc.setParent(parent)
+    def _setParent(self, suc, parent):
+        suc.setParent(parent)
 
     def _betterPosition(self, positions, pos):
-        """
-        Needs to be done. It's a function that see if there is any better option than "pos".
-        Returns True if exist a better Position
-        and
-        Returns False if not
-        """""
+        for position in positions:
+            if pos.getRow() == position.getRow() and pos.getCol() == position.getCol() and pos.getCost() > position.getCost():
+                return True
+        return False
 
-    #Needs to be completed and needs to be tested.
+    #Gets the path and return use it
+    def _pathFinding(self, pos):
+        actual = pos
+        while actual is not None:
+            self._pathFinding(actual)
+            actual = actual.getParent()
+
+    """
+    The Only Function that needs to be used.
+        If True = A path exist
+        If False = Don't exist
+    """
     def aStar(self):
         openList = []
         closedList = []
@@ -95,17 +125,21 @@ class Agent:
         while len(openList) != 0:
             q = openList.pop(self._nodeWithLeastF(openList))
             successors = self._sens.getSuccessors(q.getRow(), q.getCol())
-            self._setParent(successors, q)
 
             for suc in successors:
                 if suc == self._dest:
-                    return #Here needs to be implemented a function that returns the path to the destiny
+                    self._pathFinding(suc)
+                    return True
+
                 successorG = self._sens.getCost(suc) + 1
                 successorH = self._sens.getHeuristics(suc, self._dest)
                 successorF = successorG + successorH
                 suc.setCost(successorF)
 
-                if not (_betterPosition(openList, suc)) and (not _betterPosition(closedList, suc)):
+                if not (self._betterPosition(openList, suc)) and (not self._betterPosition(closedList, suc)):
+                    self._setParent(suc, q)
                     openList.append(suc)
 
             closedList.append(q)
+
+        return False
